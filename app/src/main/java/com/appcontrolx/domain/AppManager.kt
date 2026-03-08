@@ -1,8 +1,12 @@
 package com.appcontrolx.domain
 
+import android.content.Context
+import com.appcontrolx.data.ActionHistoryStore
 import com.appcontrolx.core.ShellManager
+import com.appcontrolx.model.ActionHistoryItem
 import com.appcontrolx.model.ActionResult
 import com.appcontrolx.model.AppAction
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -10,8 +14,10 @@ import javax.inject.Singleton
 
 @Singleton
 class AppManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val shellManager: ShellManager,
-    private val safetyValidator: SafetyValidator
+    private val safetyValidator: SafetyValidator,
+    private val actionHistoryStore: ActionHistoryStore
 ) {
 
     suspend fun executeAction(packageName: String, action: AppAction): ActionResult =
@@ -41,6 +47,19 @@ class AppManager @Inject constructor(
 
             result.fold(
                 onSuccess = {
+                    try {
+                        actionHistoryStore.addAction(
+                            ActionHistoryItem(
+                                packageName = packageName,
+                                appName = resolveAppName(packageName),
+                                action = action,
+                                timestamp = System.currentTimeMillis(),
+                                canRollback = isRollbackSupported(action)
+                            )
+                        )
+                    } catch (_: Exception) {
+                        // Ignore history write failures to keep action result stable.
+                    }
                     ActionResult(
                         success = true,
                         message = "Success",
@@ -58,6 +77,17 @@ class AppManager @Inject constructor(
                 }
             )
         }
+
+    private fun resolveAppName(packageName: String): String {
+        return runCatching {
+            val appInfo = context.packageManager.getApplicationInfo(packageName, 0)
+            context.packageManager.getApplicationLabel(appInfo).toString()
+        }.getOrDefault(packageName)
+    }
+
+    private fun isRollbackSupported(action: AppAction): Boolean {
+        return action == AppAction.FREEZE || action == AppAction.UNFREEZE
+    }
 
     suspend fun executeBatchAction(
         packages: List<String>,

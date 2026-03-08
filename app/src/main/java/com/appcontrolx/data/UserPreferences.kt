@@ -5,10 +5,12 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,11 +27,14 @@ class UserPreferences @Inject constructor(
         private val SETUP_COMPLETED = booleanPreferencesKey("setup_completed")
     }
 
-    val isFirstLaunch: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    private val safeDataStoreFlow: Flow<Preferences> = context.dataStore.data
+        .catch { emit(emptyPreferences()) }
+
+    val isFirstLaunch: Flow<Boolean> = safeDataStoreFlow.map { preferences ->
         preferences[IS_FIRST_LAUNCH] ?: true
     }
 
-    val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
+    val themeMode: Flow<ThemeMode> = safeDataStoreFlow.map { preferences ->
         when (preferences[THEME_MODE]) {
             "LIGHT" -> ThemeMode.LIGHT
             "DARK" -> ThemeMode.DARK
@@ -37,7 +42,7 @@ class UserPreferences @Inject constructor(
         }
     }
 
-    val isSetupCompleted: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val isSetupCompleted: Flow<Boolean> = safeDataStoreFlow.map { preferences ->
         preferences[SETUP_COMPLETED] ?: false
     }
 

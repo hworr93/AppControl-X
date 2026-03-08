@@ -1,5 +1,7 @@
 package com.appcontrolx.ui.screens.about
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +26,17 @@ fun AboutScreen(
     viewModel: AboutViewModel = hiltViewModel()
 ) {
     val appInfo by viewModel.appInfo.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val openSourceCode = remember(context) {
+        {
+            val intent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://github.com/risunCode/AppControl-X")
+            )
+            context.startActivity(intent)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -267,7 +281,7 @@ fun AboutScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    onClick = { /* TODO: Open GitHub */ }
+                    onClick = openSourceCode
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),

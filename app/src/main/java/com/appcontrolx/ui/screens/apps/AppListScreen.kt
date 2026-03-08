@@ -38,7 +38,8 @@ fun AppListScreen(
     onNavigateBack: () -> Unit,
     viewModel: AppListViewModel = hiltViewModel()
 ) {
-    val apps by viewModel.apps.collectAsStateWithLifecycle()
+    val filteredApps by viewModel.filteredApps.collectAsStateWithLifecycle()
+    val filterCounts by viewModel.filterCounts.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
@@ -58,6 +59,14 @@ fun AppListScreen(
                         "Apps",
                         fontWeight = FontWeight.SemiBold
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.toggleSelectionMode() }) {
@@ -89,7 +98,7 @@ fun AppListScreen(
             FilterTabs(
                 selectedFilter = selectedFilter,
                 onFilterChange = { viewModel.setFilter(it) },
-                apps = apps,
+                counts = filterCounts,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
@@ -110,7 +119,6 @@ fun AppListScreen(
             }
 
             // App Count
-            val filteredApps = viewModel.getFilteredApps()
             Text(
                 text = "${filteredApps.size} apps",
                 style = MaterialTheme.typography.bodySmall,
@@ -240,18 +248,9 @@ private fun SearchBar(
 private fun FilterTabs(
     selectedFilter: String,
     onFilterChange: (String) -> Unit,
-    apps: List<AppInfo>,
+    counts: AppListViewModel.FilterCounts,
     modifier: Modifier = Modifier
 ) {
-    val counts = remember(apps) {
-        mapOf(
-            "all" to apps.size,
-            "user" to apps.count { !it.isSystemApp },
-            "system" to apps.count { it.isSystemApp },
-            "frozen" to apps.count { !it.isEnabled }
-        )
-    }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -263,28 +262,28 @@ private fun FilterTabs(
             onClick = { onFilterChange("all") },
             label = { Text("All") },
             leadingIcon = { Icon(Icons.Default.Package, contentDescription = null, modifier = Modifier.size(16.dp)) },
-            trailingIcon = { Text(counts["all"].toString(), style = MaterialTheme.typography.labelSmall) }
+            trailingIcon = { Text(counts.all.toString(), style = MaterialTheme.typography.labelSmall) }
         )
         FilterChip(
             selected = selectedFilter == "user",
             onClick = { onFilterChange("user") },
             label = { Text("User") },
             leadingIcon = { Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(16.dp)) },
-            trailingIcon = { Text(counts["user"].toString(), style = MaterialTheme.typography.labelSmall) }
+            trailingIcon = { Text(counts.user.toString(), style = MaterialTheme.typography.labelSmall) }
         )
         FilterChip(
             selected = selectedFilter == "system",
             onClick = { onFilterChange("system") },
             label = { Text("System") },
             leadingIcon = { Icon(Icons.Default.Package, contentDescription = null, modifier = Modifier.size(16.dp)) },
-            trailingIcon = { Text(counts["system"].toString(), style = MaterialTheme.typography.labelSmall) }
+            trailingIcon = { Text(counts.system.toString(), style = MaterialTheme.typography.labelSmall) }
         )
         FilterChip(
             selected = selectedFilter == "frozen",
             onClick = { onFilterChange("frozen") },
             label = { Text("Frozen") },
             leadingIcon = { Icon(Icons.Default.AcUnit, contentDescription = null, modifier = Modifier.size(16.dp)) },
-            trailingIcon = { Text(counts["frozen"].toString(), style = MaterialTheme.typography.labelSmall) },
+            trailingIcon = { Text(counts.frozen.toString(), style = MaterialTheme.typography.labelSmall) },
             colors = FilterChipDefaults.filterChipColors(
                 selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer
             )

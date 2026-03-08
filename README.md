@@ -1,142 +1,74 @@
 # AppControlX
 
-A powerful Android app control utility built with Kotlin + React hybrid architecture.
+AppControlX is a native Android app management utility built with Kotlin and Jetpack Compose.
 
-## Features
+## What It Does
 
-- **Freeze/Unfreeze Apps** - Disable apps without uninstalling
-- **Force Stop Apps** - Kill running applications
-- **Uninstall Apps** - Remove apps for current user
-- **Clear Cache/Data** - Free up storage space
-- **Background Restriction** - Control app background activity
-- **System Monitoring** - Real-time CPU, RAM, Storage, Battery stats
-- **Action History & Rollback** - View past actions and undo freeze/unfreeze
-- **Safety Protection** - Prevents modification of critical system apps
+- Freeze/unfreeze apps
+- Force stop apps
+- Clear app cache/data
+- Uninstall apps for current user
+- Launch hidden settings and activities
+- Monitor CPU, RAM, storage, battery, and device stats
+- Keep action history with rollback for supported operations
 
-## Screenshots
+## Architecture (v4 Native)
 
-<table>
-  <tr>
-    <td align="center"><b>Home</b></td>
-    <td align="center"><b>Tools</b></td>
-  </tr>
-  <tr>
-    <td><img src="https://github.com/user-attachments/assets/87a407ec-920d-4254-b52b-a29bc641e7ff" width="300"/></td>
-    <td><img src="https://github.com/user-attachments/assets/a245fa13-b4f5-4385-a733-daa96e9468e3" width="300"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Settings</b></td>
-    <td align="center"><b>About</b></td>
-  </tr>
-  <tr>
-    <td><img src="https://github.com/user-attachments/assets/dee81f94-cb59-4814-a418-86da01bb9897" width="300"/></td>
-    <td><img src="https://github.com/user-attachments/assets/8ffb536e-b87e-44f7-ab45-9b60ada48e39" width="300"/></td>
-  </tr>
-</table>
+- **UI:** Jetpack Compose + Material 3
+- **State:** ViewModel + StateFlow
+- **DI:** Hilt
+- **Persistence:** DataStore + kotlinx.serialization
+- **Execution layer:** libsu (root) and Shizuku
 
-## Architecture
-
-```
-┌─────────────────────────────────────┐
-│     React UI (WebView)              │
-│     TypeScript + Tailwind           │
-├─────────────────────────────────────┤
-│     JavaScript Bridge               │
-│     @JavascriptInterface            │
-├─────────────────────────────────────┤
-│     Kotlin Native Layer             │
-│     libsu + Shizuku                 │
-└─────────────────────────────────────┘
-```
+No WebView, React, or JavaScript bridge is used in v4.
 
 ## Requirements
 
 - Android 10+ (API 29+)
-- Root access (Magisk/KernelSU) OR Shizuku
-
-## Building
-
-### Prerequisites
-
-- JDK 17
-- Node.js 20+
 - Android SDK 34
+- JDK 17
+- Root (Magisk/KernelSU) or Shizuku for privileged actions
 
-### Build Steps
-
-```bash
-# Install web dependencies
-cd web
-npm install
-
-# Build React app
-npm run build
-
-# Build Android APK
-cd ..
-./gradlew assembleDebug
-```
-
-### Output
-
-APK will be at: `app/build/outputs/apk/debug/AppControlX-v3.0.0-debug.apk`
-
-## Development
-
-### Web (React)
+## Build
 
 ```bash
-cd web
-npm run dev
+./gradlew lintDebug testDebugUnitTest assembleDebug
 ```
 
-Open http://localhost:3000 in browser for development.
+Debug APK output:
 
-### Android
+`app/build/outputs/apk/debug/`
 
-Open the project in Android Studio and run on device/emulator.
+## Signed Release Build
 
-## Tech Stack
+Release builds require signing environment variables. There is no debug-key fallback for release.
 
-### Native
-- Kotlin 1.9
-- Hilt (Dependency Injection)
-- libsu (Root access)
-- Shizuku API
-- kotlinx.serialization
+Required variables:
 
-### Web
-- React 18
-- TypeScript 5
-- Vite 5
-- Tailwind CSS 3
-- Zustand (State Management)
-- Recharts (Graphs)
-- Lucide React (Icons)
+- `KEYSTORE_FILE`
+- `KEYSTORE_PASSWORD`
+- `KEY_ALIAS`
+- `KEY_PASSWORD`
 
-## Credits & Acknowledgments
+Build command:
 
-### Libraries
-- [libsu](https://github.com/topjohnwu/libsu) by topjohnwu - Root shell
-- [Shizuku](https://github.com/RikkaApps/Shizuku) by RikkaApps - Shell access without root
-- [Lucide Icons](https://lucide.dev/) - Beautiful icon set
-- [Recharts](https://recharts.org/) - React charting library
-- [Zustand](https://github.com/pmndrs/zustand) - State management
+```bash
+./gradlew assembleRelease
+```
 
-### Code References
-- [DeviceInfo](https://github.com/ahmmedrejowan/DeviceInfo) by ahmmedrejowan - Device information utilities adapted for system monitoring
+Release APK output:
 
-### Theme
-- Light theme inspired by [Solarized](https://ethanschoonover.com/solarized/) by Ethan Schoonover
+`app/build/outputs/apk/release/`
 
-### Tools
-- Built with [Vite](https://vitejs.dev/)
-- Styled with [Tailwind CSS](https://tailwindcss.com/)
+## CI
+
+- `build.yml` runs lint, unit tests, and debug APK build.
+- `release.yml` validates signing secrets, builds signed release APK, uploads artifact, and publishes GitHub release on `v*` tags.
+
+## Permissions and Network Behavior
+
+The app requests `INTERNET` permission in the manifest. Core app-management and monitoring flows are local/on-device and do not rely on a remote backend service.
 
 ## License
 
 GPL-3.0
-
----
-
-Made with care for Android power users - 2026

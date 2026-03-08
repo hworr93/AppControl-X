@@ -19,6 +19,7 @@ import android.os.storage.StorageManager
 import android.telephony.TelephonyManager
 import android.view.WindowManager
 import com.appcontrolx.model.*
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.RandomAccessFile
 import javax.inject.Inject
@@ -31,13 +32,19 @@ import kotlin.math.sqrt
  */
 @Singleton
 class SystemMonitor @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
     private val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    private val cpuStateLock = Any()
+    private val deviceStateLock = Any()
+    private val storageCacheLock = Any()
     private var lastCpuTotal: Long = 0
     private var lastCpuIdle: Long = 0
     private var lastAwakeTime: Long = SystemClock.uptimeMillis()
     private var accumulatedSleepTime: Long = 0
+    private var cachedAppsStorageBytes: Long = -1L
+    private var appsStorageCacheTimestamp: Long = 0L
+    private val appsStorageCacheTtlMs: Long = 60_000L
 
     fun getSystemStats(): SystemStats {
         return try {
@@ -71,10 +78,12 @@ class SystemMonitor @Inject constructor(
             val deepSleepMs = uptimeMs - awakeTimeMs
 
             // Track accumulated sleep time for more accurate percentage
-            val currentAwake = SystemClock.uptimeMillis()
-            val awakeDiff = currentAwake - lastAwakeTime
-            lastAwakeTime = currentAwake
-            accumulatedSleepTime += (uptimeMs - awakeDiff - accumulatedSleepTime).coerceAtLeast(0)
+            synchronized(deviceStateLock) {
+                val currentAwake = SystemClock.uptimeMillis()
+                val awakeDiff = currentAwake - lastAwakeTime
+                lastAwakeTime = currentAwake
+                accumulatedSleepTime += (uptimeMs - awakeDiff - accumulatedSleepTime).coerceAtLeast(0)
+            }
 
             val deepSleepPercent = if (uptimeMs > 0) {
                 ((deepSleepMs.toFloat() / uptimeMs.toFloat()) * 100).toInt()
@@ -100,6 +109,21 @@ class SystemMonitor @Inject constructor(
             cpuTemp = getCpuTemperature(),
             gpuTemp = getGpuTemperature()
         )
+    }
+
+    fun stopSystemMonitor() {
+        synchronized(cpuStateLock) {
+            lastCpuTotal = 0
+            lastCpuIdle = 0
+        }
+        synchronized(deviceStateLock) {
+            lastAwakeTime = SystemClock.uptimeMillis()
+            accumulatedSleepTime = 0
+        }
+        synchronized(storageCacheLock) {
+            cachedAppsStorageBytes = -1L
+            appsStorageCacheTimestamp = 0L
+        }
     }
 
     fun getCoreFrequencies(): List<Long> {
@@ -159,11 +183,13 @@ class SystemMonitor @Inject constructor(
             val softirq = parts[7].toLong()
 
             val total = user + nice + system + idle + iowait + irq + softirq
-            val totalDiff = total - lastCpuTotal
-            val idleDiff = idle - lastCpuIdle
-
-            lastCpuTotal = total
-            lastCpuIdle = idle
+            val (totalDiff, idleDiff) = synchronized(cpuStateLock) {
+                val totalDiffLocal = total - lastCpuTotal
+                val idleDiffLocal = idle - lastCpuIdle
+                lastCpuTotal = total
+                lastCpuIdle = idle
+                Pair(totalDiffLocal, idleDiffLocal)
+            }
 
             if (totalDiff == 0L) 0f
             else ((totalDiff - idleDiff).toFloat() / totalDiff.toFloat()) * 100f
@@ -351,8 +377,18 @@ class SystemMonitor @Inject constructor(
     }
 
     private fun getAppsStorageSize(): Long {
+        val now = System.currentTimeMillis()
+        val cached = synchronized(storageCacheLock) {
+            if (cachedAppsStorageBytes >= 0 && (now - appsStorageCacheTimestamp) < appsStorageCacheTtlMs) {
+                cachedAppsStorageBytes
+            } else {
+                null
+            }
+        }
+        if (cached != null) return cached
+
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val computed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val storageStatsManager = context.getSystemService(Context.STORAGE_STATS_SERVICE) as StorageStatsManager
                 val uuid = StorageManager.UUID_DEFAULT
 
@@ -370,6 +406,12 @@ class SystemMonitor @Inject constructor(
             } else {
                 0L
             }
+
+            synchronized(storageCacheLock) {
+                cachedAppsStorageBytes = computed
+                appsStorageCacheTimestamp = now
+            }
+            computed
         } catch (_: Exception) {
             0L
         }

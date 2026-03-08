@@ -7,9 +7,13 @@ import com.appcontrolx.domain.AppScanner
 import com.appcontrolx.model.AppAction
 import com.appcontrolx.model.AppInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,6 +22,13 @@ class AppListViewModel @Inject constructor(
     private val appScanner: AppScanner,
     private val appManager: AppManager
 ) : ViewModel() {
+
+    data class FilterCounts(
+        val all: Int = 0,
+        val user: Int = 0,
+        val system: Int = 0,
+        val frozen: Int = 0
+    )
 
     private val _apps = MutableStateFlow<List<AppInfo>>(emptyList())
     val apps: StateFlow<List<AppInfo>> = _apps.asStateFlow()
@@ -37,6 +48,42 @@ class AppListViewModel @Inject constructor(
     private val _isSelectionMode = MutableStateFlow(false)
     val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
 
+    val filteredApps: StateFlow<List<AppInfo>> = combine(_apps, _searchQuery, _selectedFilter) { apps, query, filter ->
+        val normalizedQuery = query.trim().lowercase()
+
+        apps.asSequence()
+            .filter { app ->
+                val matchesSearch = if (normalizedQuery.isEmpty()) {
+                    true
+                } else {
+                    app.appName.lowercase().contains(normalizedQuery) ||
+                        app.packageName.lowercase().contains(normalizedQuery)
+                }
+
+                val matchesFilter = when (filter) {
+                    "user" -> !app.isSystemApp
+                    "system" -> app.isSystemApp
+                    "frozen" -> !app.isEnabled
+                    else -> true
+                }
+
+                matchesSearch && matchesFilter
+            }
+            .sortedBy { it.appName.lowercase() }
+            .toList()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filterCounts: StateFlow<FilterCounts> = _apps
+        .map { apps ->
+            FilterCounts(
+                all = apps.size,
+                user = apps.count { !it.isSystemApp },
+                system = apps.count { it.isSystemApp },
+                frozen = apps.count { !it.isEnabled }
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FilterCounts())
+
     init {
         loadApps()
     }
@@ -55,29 +102,6 @@ class AppListViewModel @Inject constructor(
 
     fun setFilter(filter: String) {
         _selectedFilter.value = filter
-    }
-
-    fun getFilteredApps(): List<AppInfo> {
-        val query = _searchQuery.value.lowercase()
-        val filter = _selectedFilter.value
-
-        return _apps.value.filter { app ->
-            // Search filter
-            val matchesSearch = if (query.isEmpty()) true else {
-                app.appName.lowercase().contains(query) ||
-                app.packageName.lowercase().contains(query)
-            }
-
-            // Category filter
-            val matchesFilter = when (filter) {
-                "user" -> !app.isSystemApp
-                "system" -> app.isSystemApp
-                "frozen" -> !app.isEnabled
-                else -> true
-            }
-
-            matchesSearch && matchesFilter
-        }.sortedBy { it.appName.lowercase() }
     }
 
     fun toggleSelectionMode() {

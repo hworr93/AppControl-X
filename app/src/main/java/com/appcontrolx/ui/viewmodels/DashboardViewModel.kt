@@ -8,12 +8,14 @@ import com.appcontrolx.model.AppInfo
 import com.appcontrolx.model.DeviceInfo
 import com.appcontrolx.model.SystemStats
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -42,16 +44,19 @@ class DashboardViewModel @Inject constructor(
     private fun loadInitialData() {
         viewModelScope.launch {
             _isLoading.value = true
-            
-            // Load device info
-            _deviceInfo.value = systemMonitor.getDeviceInfo()
-            
-            // Load apps (without icons for faster load)
-            _apps.value = appScanner.scanAllApps(forceRefresh = false, includeIcons = false)
-            
-            // Load initial stats
-            _systemStats.value = systemMonitor.getSystemStats()
-            
+
+            _deviceInfo.value = withContext(Dispatchers.IO) {
+                systemMonitor.getDeviceInfo()
+            }
+
+            _apps.value = withContext(Dispatchers.IO) {
+                appScanner.scanAllApps(forceRefresh = false, includeIcons = false)
+            }
+
+            _systemStats.value = withContext(Dispatchers.IO) {
+                systemMonitor.getSystemStats()
+            }
+
             _isLoading.value = false
         }
     }
@@ -59,7 +64,10 @@ class DashboardViewModel @Inject constructor(
     private fun startMonitoring() {
         viewModelScope.launch {
             while (isActive) {
-                _systemStats.value = systemMonitor.getSystemStats()
+                val latestStats = withContext(Dispatchers.IO) {
+                    systemMonitor.getSystemStats()
+                }
+                _systemStats.value = latestStats
                 delay(2000) // Update every 2 seconds
             }
         }

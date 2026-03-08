@@ -14,6 +14,7 @@ import com.appcontrolx.model.AppActivities
 import com.appcontrolx.model.AppActivityFilter
 import com.appcontrolx.model.AppInfo
 import com.appcontrolx.model.ExecutionMode
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -22,24 +23,36 @@ import javax.inject.Singleton
 
 @Singleton
 class AppScanner @Inject constructor(
-    private val context: Context,
-    private val shellManager: ShellManager
+    @ApplicationContext private val context: Context,
+    private val shellManager: ShellManager,
+    private val safetyValidator: SafetyValidator
 ) {
     private val packageManager: PackageManager = context.packageManager
-    private val safetyValidator = SafetyValidator()
-
-    private var cachedApps: List<AppInfo>? = null
-    private var cacheTimestamp: Long = 0
+    private val cacheLock = Any()
+    private val cachedAppsByIconMode = mutableMapOf<Boolean, CacheEntry<List<AppInfo>>>()
+    private var runningPackagesCache: CacheEntry<Set<String>>? = null
+    private var backgroundRestrictedCache: CacheEntry<Set<String>>? = null
     private val cacheValidityMs = 30_000L
+    private val runningCacheValidityMs = 10_000L
+
+    private data class CacheEntry<T>(
+        val value: T,
+        val timestamp: Long
+    )
 
     suspend fun scanAllApps(forceRefresh: Boolean = false, includeIcons: Boolean = false): List<AppInfo> = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        if (!forceRefresh && cachedApps != null && (now - cacheTimestamp) < cacheValidityMs) {
-            return@withContext cachedApps!!
+        if (!forceRefresh) {
+            val cached = synchronized(cacheLock) {
+                cachedAppsByIconMode[includeIcons]?.takeIf { (now - it.timestamp) < cacheValidityMs }?.value
+            }
+            if (cached != null) {
+                return@withContext cached
+            }
         }
 
-        // Skip running packages check for faster initial load
-        val runningPackages = if (includeIcons) getRunningPackages() else emptySet()
+        val runningPackages = getRunningPackages(forceRefresh)
+        val backgroundRestrictedPackages = getBackgroundRestrictedPackages(forceRefresh)
         val packages = packageManager.getInstalledPackages(PackageManager.GET_META_DATA)
 
         val apps = packages.mapNotNull { pkg ->
@@ -47,7 +60,7 @@ class AppScanner @Inject constructor(
                 val appInfo = pkg.applicationInfo ?: return@mapNotNull null
                 val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
                 val isEnabled = appInfo.enabled
-                val isFrozen = !isEnabled
+                val isFrozen = isAppFrozen(pkg.packageName, appInfo)
                 val isRunning = pkg.packageName in runningPackages
 
                 AppInfo(
@@ -59,7 +72,7 @@ class AppScanner @Inject constructor(
                     isEnabled = isEnabled,
                     isRunning = isRunning,
                     isFrozen = isFrozen,
-                    isBackgroundRestricted = false,
+                    isBackgroundRestricted = pkg.packageName in backgroundRestrictedPackages,
                     size = getAppSize(appInfo),
                     uid = appInfo.uid,
                     safetyLevel = safetyValidator.getSafetyLevel(pkg.packageName),
@@ -73,8 +86,9 @@ class AppScanner @Inject constructor(
             }
         }.sortedBy { it.appName.lowercase() }
 
-        cachedApps = apps
-        cacheTimestamp = now
+        synchronized(cacheLock) {
+            cachedAppsByIconMode[includeIcons] = CacheEntry(apps, now)
+        }
         apps
     }
 
@@ -160,11 +174,22 @@ class AppScanner @Inject constructor(
     }
 
     fun invalidateCache() {
-        cachedApps = null
-        cacheTimestamp = 0
+        synchronized(cacheLock) {
+            cachedAppsByIconMode.clear()
+            runningPackagesCache = null
+            backgroundRestrictedCache = null
+        }
     }
 
-    private suspend fun getRunningPackages(): Set<String> {
+    private suspend fun getRunningPackages(forceRefresh: Boolean): Set<String> {
+        val now = System.currentTimeMillis()
+        if (!forceRefresh) {
+            val cached = synchronized(cacheLock) {
+                runningPackagesCache?.takeIf { (now - it.timestamp) < runningCacheValidityMs }?.value
+            }
+            if (cached != null) return cached
+        }
+
         val running = mutableSetOf<String>()
 
         if (shellManager.getMode() != ExecutionMode.NONE) {
@@ -179,7 +204,72 @@ class AppScanner @Inject constructor(
             } catch (_: Exception) {}
         }
 
+        synchronized(cacheLock) {
+            runningPackagesCache = CacheEntry(running.toSet(), now)
+        }
         return running
+    }
+
+    private suspend fun getBackgroundRestrictedPackages(forceRefresh: Boolean): Set<String> {
+        val now = System.currentTimeMillis()
+        if (!forceRefresh) {
+            val cached = synchronized(cacheLock) {
+                backgroundRestrictedCache?.takeIf { (now - it.timestamp) < cacheValidityMs }?.value
+            }
+            if (cached != null) return cached
+        }
+
+        val restricted = mutableSetOf<String>()
+        if (shellManager.getMode() != ExecutionMode.NONE) {
+            try {
+                shellManager.execute("cmd appops query-op RUN_ANY_IN_BACKGROUND ignore").onSuccess { output ->
+                    restricted += parsePackagesFromAppOps(output)
+                }
+                if (restricted.isEmpty()) {
+                    shellManager.execute("cmd appops query-op RUN_IN_BACKGROUND ignore").onSuccess { output ->
+                        restricted += parsePackagesFromAppOps(output)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        val immutable = restricted.toSet()
+        synchronized(cacheLock) {
+            backgroundRestrictedCache = CacheEntry(immutable, now)
+        }
+        return immutable
+    }
+
+    private fun parsePackagesFromAppOps(output: String): Set<String> {
+        val packages = mutableSetOf<String>()
+
+        val keyedPattern = Regex("""(?:package|pkg=)\s*([a-zA-Z][a-zA-Z0-9_.]*)""")
+        keyedPattern.findAll(output).forEach { match ->
+            match.groupValues.getOrNull(1)?.let { if (it.contains('.')) packages.add(it) }
+        }
+
+        if (packages.isEmpty()) {
+            val genericPattern = Regex("""\b([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)\b""")
+            genericPattern.findAll(output).forEach { match ->
+                match.groupValues.getOrNull(1)?.let { packages.add(it) }
+            }
+        }
+
+        return packages
+    }
+
+    private fun isAppFrozen(packageName: String, appInfo: ApplicationInfo): Boolean {
+        return try {
+            when (packageManager.getApplicationEnabledSetting(packageName)) {
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED -> true
+                PackageManager.COMPONENT_ENABLED_STATE_DEFAULT -> !appInfo.enabled
+                else -> !appInfo.enabled
+            }
+        } catch (_: Exception) {
+            !appInfo.enabled
+        }
     }
 
     private fun getAppSize(appInfo: ApplicationInfo): Long {

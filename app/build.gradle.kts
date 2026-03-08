@@ -1,3 +1,5 @@
+import org.gradle.api.GradleException
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -19,13 +21,50 @@ android {
         versionName = "4.0.0"
     }
 
+    val releaseSigningEnvVars = listOf(
+        "KEYSTORE_FILE",
+        "KEYSTORE_PASSWORD",
+        "KEY_ALIAS",
+        "KEY_PASSWORD"
+    )
+    val isReleaseBuildRequested = gradle.startParameter.taskNames.any { taskName ->
+        taskName.contains("Release", ignoreCase = true)
+    }
+
     signingConfigs {
         create("release") {
-            val keystoreFile = System.getenv("KEYSTORE_FILE") ?: "${System.getProperty("user.home")}/.android/debug.keystore"
-            storeFile = file(keystoreFile)
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "android"
-            keyAlias = System.getenv("KEY_ALIAS") ?: "androiddebugkey"
-            keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
+            val signingValues = releaseSigningEnvVars.associateWith { envName ->
+                System.getenv(envName)?.trim().orEmpty().ifEmpty { null }
+            }
+            val missingVars = signingValues.filterValues { it == null }.keys
+            val hasAnySigningInput = signingValues.values.any { it != null }
+
+            if (hasAnySigningInput && missingVars.isNotEmpty()) {
+                throw GradleException(
+                    "Incomplete release signing configuration. Missing: ${missingVars.joinToString(", ")}. " +
+                        "Provide all required variables: ${releaseSigningEnvVars.joinToString(", ")}."
+                )
+            }
+
+            if (isReleaseBuildRequested && missingVars.isNotEmpty()) {
+                throw GradleException(
+                    "Release signing is required but missing environment variables: ${missingVars.joinToString(", ")}. " +
+                        "Set ${releaseSigningEnvVars.joinToString(", ")} before building release artifacts."
+                )
+            }
+
+            if (missingVars.isEmpty()) {
+                val keystorePath = signingValues.getValue("KEYSTORE_FILE")!!
+                val resolvedKeystore = file(keystorePath)
+                if (isReleaseBuildRequested && !resolvedKeystore.exists()) {
+                    throw GradleException("KEYSTORE_FILE does not exist: $keystorePath")
+                }
+
+                storeFile = resolvedKeystore
+                storePassword = signingValues.getValue("KEYSTORE_PASSWORD")
+                keyAlias = signingValues.getValue("KEY_ALIAS")
+                keyPassword = signingValues.getValue("KEY_PASSWORD")
+            }
         }
     }
 
@@ -62,21 +101,11 @@ android {
     }
 
     lint {
-        abortOnError = false
-        checkReleaseBuilds = false
+        abortOnError = true
+        checkReleaseBuilds = true
         disable += "QueryAllPackagesPermission"
     }
 
-    applicationVariants.all {
-        val variant = this
-        variant.outputs.all {
-            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val appName = "AppControlX"
-            val versionName = defaultConfig.versionName
-            val buildType = variant.buildType.name
-            output.outputFileName = "${appName}-v${versionName}-${buildType}.apk"
-        }
-    }
 }
 
 dependencies {
@@ -126,4 +155,7 @@ dependencies {
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Unit Testing
+    testImplementation("junit:junit:4.13.2")
 }

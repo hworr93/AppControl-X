@@ -1,10 +1,16 @@
 package com.appcontrolx.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -24,7 +30,17 @@ fun AppNavGraph(
 ) {
     val isSetupCompleted by mainViewModel.isSetupCompleted.collectAsStateWithLifecycle()
 
-    val startDestination = if (isSetupCompleted) Screen.Dashboard.route else Screen.Setup.route
+    if (isSetupCompleted == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    val startDestination = if (isSetupCompleted == true) Screen.Dashboard.route else Screen.Setup.route
 
     NavHost(
         navController = navController,
@@ -44,6 +60,7 @@ fun AppNavGraph(
         composable(Screen.Dashboard.route) {
             DashboardScreen(
                 onNavigateToApps = { navController.navigate(Screen.Apps.route) },
+                onNavigateToTools = { navController.navigate(Screen.Tools.route) },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
             )
         }
@@ -75,7 +92,8 @@ fun AppNavGraph(
                 onResetSetup = {
                     mainViewModel.resetSetup()
                     navController.navigate(Screen.Setup.route) {
-                        popUpTo(0) { inclusive = true }
+                        popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             )

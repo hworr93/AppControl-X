@@ -43,10 +43,25 @@ fun ToolsScreen(
 ) {
     val loadingId by viewModel.loadingId.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val hiddenSettingsSections = getHiddenSettingsSections()
 
+    LaunchedEffect(errorMessage) {
+        val message = errorMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            message = message,
+            actionLabel = "Dismiss",
+            withDismissAction = true,
+            duration = SnackbarDuration.Long
+        )
+        viewModel.clearError()
+    }
+
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -54,6 +69,11 @@ fun ToolsScreen(
                         "Tools",
                         fontWeight = FontWeight.SemiBold
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
@@ -139,23 +159,6 @@ fun ToolsScreen(
             }
         }
 
-        // Error Toast
-        errorMessage?.let { message ->
-            LaunchedEffect(message) {
-                kotlinx.coroutines.delay(3000)
-                viewModel.clearError()
-            }
-            Snackbar(
-                modifier = Modifier.padding(16.dp),
-                action = {
-                    TextButton(onClick = { viewModel.clearError() }) {
-                        Text("Dismiss")
-                    }
-                }
-            ) {
-                Text(message)
-            }
-        }
     }
 }
 

@@ -7,6 +7,8 @@ import com.appcontrolx.domain.AppScanner
 import com.appcontrolx.model.AppActivities
 import com.appcontrolx.model.AppActivityFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +20,9 @@ class ActivityLauncherViewModel @Inject constructor(
     private val appScanner: AppScanner,
     private val shellManager: ShellManager
 ) : ViewModel() {
+
+    private var loadJob: Job? = null
+    private var requestVersion = 0L
 
     private val _apps = MutableStateFlow<List<AppActivities>>(emptyList())
     val apps: StateFlow<List<AppActivities>> = _apps.asStateFlow()
@@ -41,23 +46,40 @@ class ActivityLauncherViewModel @Inject constructor(
         loadActivities()
     }
 
-    private fun loadActivities() {
-        viewModelScope.launch {
+    private fun loadActivities(debounceMs: Long = 250L) {
+        loadJob?.cancel()
+        val currentRequest = ++requestVersion
+
+        loadJob = viewModelScope.launch {
             _isLoading.value = true
-            val filter = AppActivityFilter(type = _selectedFilter.value, search = _searchQuery.value)
-            _apps.value = appScanner.scanAppActivities(filter)
-            _isLoading.value = false
+
+            try {
+                if (debounceMs > 0) {
+                    delay(debounceMs)
+                }
+
+                val filter = AppActivityFilter(type = _selectedFilter.value, search = _searchQuery.value)
+                val apps = appScanner.scanAppActivities(filter)
+
+                if (currentRequest == requestVersion) {
+                    _apps.value = apps
+                }
+            } finally {
+                if (currentRequest == requestVersion) {
+                    _isLoading.value = false
+                }
+            }
         }
     }
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
-        loadActivities()
+        loadActivities(debounceMs = 300L)
     }
 
     fun setFilter(filter: String) {
         _selectedFilter.value = filter
-        loadActivities()
+        loadActivities(debounceMs = 0L)
     }
 
     fun toggleAppExpansion(packageName: String) {

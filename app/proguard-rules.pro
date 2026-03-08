@@ -19,11 +19,6 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
-# Keep JavaScript Interface
--keepclassmembers class com.appcontrolx.bridge.NativeBridge {
-    @android.webkit.JavascriptInterface <methods>;
-}
-
 # Keep Shizuku
 -keep class rikka.shizuku.** { *; }
 -keep class moe.shizuku.** { *; }

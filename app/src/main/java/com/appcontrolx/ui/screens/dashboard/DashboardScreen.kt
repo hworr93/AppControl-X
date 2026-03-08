@@ -30,6 +30,7 @@ import com.appcontrolx.ui.viewmodels.DashboardViewModel
 @Composable
 fun DashboardScreen(
     onNavigateToApps: () -> Unit,
+    onNavigateToTools: () -> Unit,
     onNavigateToSettings: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
@@ -49,6 +50,14 @@ fun DashboardScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                 },
+                actions = {
+                    IconButton(onClick = onNavigateToTools) {
+                        Icon(Icons.Default.Build, contentDescription = "Tools")
+                    }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
                 )
@@ -66,7 +75,7 @@ fun DashboardScreen(
             item {
                 CpuCard(
                     cpuStats = systemStats?.cpu,
-                    onClick = { /* TODO: Open CPU details */ }
+                    onClick = { selectedModal = "cpu" }
                 )
             }
 
@@ -178,11 +187,22 @@ fun DashboardScreen(
 
     // Modals
     if (selectedModal != null) {
+        val modalTitle = when (selectedModal) {
+            "cpu" -> "CPU Details"
+            "battery" -> "Battery Details"
+            "network" -> "Network Details"
+            "display" -> "Display Details"
+            "memory" -> "RAM Details"
+            "storage" -> "Storage Details"
+            else -> "Details"
+        }
+
         AlertDialog(
             onDismissRequest = { selectedModal = null },
-            title = { Text(selectedModal ?: "") },
+            title = { Text(modalTitle) },
             text = {
                 when (selectedModal) {
+                    "cpu" -> CpuDetailContent(systemStats?.cpu)
                     "battery" -> BatteryDetailContent(systemStats?.battery)
                     "network" -> NetworkDetailContent(systemStats?.network)
                     "display" -> DisplayDetailContent(systemStats?.display)
@@ -649,6 +669,21 @@ private fun DeviceInfoCard(deviceInfo: DeviceInfo) {
 }
 
 // Detail Content Composables
+@Composable
+private fun CpuDetailContent(cpu: CpuStats?) {
+    Column {
+        cpu?.let { c ->
+            DetailRow("Usage", "${c.usagePercent.toInt()}%")
+            DetailRow("Cores", c.cores.toString())
+            DetailRow("Temperature", c.temperature?.let { "${it.toInt()}°C" } ?: "--")
+            if (c.coreFrequencies.isNotEmpty()) {
+                val topFrequencies = c.coreFrequencies.take(8).joinToString(", ") { "${it} MHz" }
+                DetailRow("Frequencies", topFrequencies)
+            }
+        }
+    }
+}
+
 @Composable
 private fun BatteryDetailContent(battery: BatteryStats?) {
     Column {

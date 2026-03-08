@@ -8,6 +8,7 @@ import com.appcontrolx.BuildConfig
 import com.appcontrolx.IShellService
 import com.appcontrolx.model.ExecutionMode
 import com.topjohnwu.superuser.Shell
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
@@ -18,12 +19,25 @@ import javax.inject.Singleton
 
 @Singleton
 class ShellManager @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
     private var currentMode: ExecutionMode = ExecutionMode.NONE
+    private val serviceLock = Any()
+
+    @Volatile
     private var shellService: IShellService? = null
+
+    @Volatile
     private var serviceLatch = CountDownLatch(1)
+
+    @Volatile
     private var isBound = false
+
+    @Volatile
+    private var isBinding = false
+
+    @Volatile
+    private var sessionToken: String? = null
 
     private val userServiceArgs by lazy {
         Shizuku.UserServiceArgs(
@@ -37,13 +51,23 @@ class ShellManager @Inject constructor(
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            shellService = IShellService.Stub.asInterface(service)
-            serviceLatch.countDown()
+            synchronized(serviceLock) {
+                shellService = IShellService.Stub.asInterface(service)
+                isBound = true
+                isBinding = false
+                sessionToken = null
+                serviceLatch.countDown()
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            shellService = null
-            isBound = false
+            synchronized(serviceLock) {
+                shellService = null
+                sessionToken = null
+                isBound = false
+                isBinding = false
+                serviceLatch = CountDownLatch(1)
+            }
         }
     }
 
@@ -106,19 +130,28 @@ class ShellManager @Inject constructor(
     }
 
     private fun bindShizukuService() {
-        if (!Shizuku.pingBinder() || isBound) return
-        try {
-            serviceLatch = CountDownLatch(1)
-            Shizuku.bindUserService(userServiceArgs, serviceConnection)
-            isBound = true
-        } catch (e: Exception) {
-            currentMode = ExecutionMode.NONE
+        synchronized(serviceLock) {
+            if (!Shizuku.pingBinder() || isBound || isBinding) return
+            try {
+                serviceLatch = CountDownLatch(1)
+                isBinding = true
+                Shizuku.bindUserService(userServiceArgs, serviceConnection)
+            } catch (e: Exception) {
+                shellService = null
+                isBound = false
+                isBinding = false
+                currentMode = ExecutionMode.NONE
+            }
         }
     }
 
     suspend fun execute(command: String): Result<String> = withContext(Dispatchers.IO) {
-        if (!isCommandAllowed(command)) {
-            return@withContext Result.failure(SecurityException("Command not allowed: $command"))
+        when (val validation = ShellCommandPolicy.validate(command)) {
+            is ShellCommandPolicy.ValidationResult.Denied -> {
+                return@withContext Result.failure(SecurityException("Command not allowed: ${validation.reason}"))
+            }
+
+            ShellCommandPolicy.ValidationResult.Allowed -> Unit
         }
 
         when (currentMode) {
@@ -155,7 +188,9 @@ class ShellManager @Inject constructor(
             ?: return Result.failure(IllegalStateException("Shizuku service not available"))
 
         return try {
-            val output = service.exec(command)
+            val token = getOrCreateSessionToken(service)
+                ?: return Result.failure(SecurityException("Failed to open authorized session"))
+            val output = service.exec(token, command)
             if (output.startsWith("ERROR:")) {
                 Result.failure(Exception(output.removePrefix("ERROR:")))
             } else {
@@ -167,69 +202,55 @@ class ShellManager @Inject constructor(
     }
 
     private fun getShizukuService(timeoutMs: Long = 3000): IShellService? {
-        if (shellService != null) return shellService
-        if (!isBound) bindShizukuService()
-        serviceLatch.await(timeoutMs, TimeUnit.MILLISECONDS)
-        return shellService
-    }
+        shellService?.let { return it }
 
-    private fun isCommandAllowed(command: String): Boolean {
-        val trimmed = command.trim().lowercase()
-
-        if (BLOCKED_PATTERNS.any { trimmed.contains(it.lowercase()) }) {
-            return false
+        val latch = synchronized(serviceLock) {
+            shellService?.let { return it }
+            if (!isBound && !isBinding) {
+                bindShizukuService()
+            }
+            serviceLatch
         }
 
-        return ALLOWED_COMMANDS.any { trimmed.startsWith(it.lowercase()) }
+        latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+        return synchronized(serviceLock) { shellService }
+    }
+
+    private fun getOrCreateSessionToken(service: IShellService): String? {
+        synchronized(serviceLock) {
+            sessionToken?.let { return it }
+        }
+
+        val newToken = service.openSession(context.packageName)
+        synchronized(serviceLock) {
+            sessionToken = newToken
+            return sessionToken
+        }
     }
 
     fun cleanup() {
-        if (isBound) {
+        val serviceToClose = synchronized(serviceLock) { shellService }
+        val tokenToClose = synchronized(serviceLock) { sessionToken }
+
+        if (serviceToClose != null && !tokenToClose.isNullOrBlank()) {
             try {
-                Shizuku.unbindUserService(userServiceArgs, serviceConnection, true)
-            } catch (_: Exception) {}
+                serviceToClose.closeSession(tokenToClose)
+            } catch (_: Exception) {
+            }
         }
-        shellService = null
-        isBound = false
-    }
 
-    companion object {
-        val ALLOWED_COMMANDS = setOf(
-            "pm disable",
-            "pm enable",
-            "pm uninstall",
-            "pm clear",
-            "pm list",
-            "am force-stop",
-            "appops set",
-            "appops get",
-            "cmd appops",
-            "dumpsys activity",
-            "dumpsys package",
-            "dumpsys battery",
-            "ps -A",
-            "cat /proc",
-            "cat /sys",
-            "settings put",
-            "settings get",
-            "settings delete"
-        )
-
-        val BLOCKED_PATTERNS = listOf(
-            "rm -rf /",
-            "rm -rf /*",
-            "format",
-            "mkfs",
-            "dd if=",
-            "> /dev/",
-            "reboot",
-            "shutdown",
-            "su -c",
-            "chmod 777 /",
-            "; rm",
-            "&& rm",
-            "| rm",
-            "rm -rf"
-        )
+        synchronized(serviceLock) {
+            if (isBound || isBinding) {
+                try {
+                    Shizuku.unbindUserService(userServiceArgs, serviceConnection, true)
+                } catch (_: Exception) {
+                }
+            }
+            shellService = null
+            sessionToken = null
+            isBound = false
+            isBinding = false
+            serviceLatch = CountDownLatch(1)
+        }
     }
 }

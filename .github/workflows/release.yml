@@ -7,32 +7,23 @@ on:
 
 jobs:
   build-and-release:
-    name: Build and Release
+    name: Build Signed Release and Publish
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install web dependencies
-        working-directory: ./web
-        run: npm ci
-
-      - name: Build React
-        working-directory: ./web
-        run: npm run build
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -41,31 +32,50 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Decode Keystore
-        if: env.KEYSTORE_BASE64 != ''
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Validate signing secrets
+        shell: bash
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > app/keystore.jks
+          set -euo pipefail
+          missing=()
+          [ -n "$KEYSTORE_BASE64" ] || missing+=("KEYSTORE_BASE64")
+          [ -n "$KEYSTORE_PASSWORD" ] || missing+=("KEYSTORE_PASSWORD")
+          [ -n "$KEY_ALIAS" ] || missing+=("KEY_ALIAS")
+          [ -n "$KEY_PASSWORD" ] || missing+=("KEY_PASSWORD")
 
-      - name: Build Release APK
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Release signing is required. Missing secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Decode keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          echo "KEYSTORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
         run: ./gradlew assembleRelease --no-daemon
         env:
-          KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_FILE: ${{ env.KEYSTORE_FILE }}
+          KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
 
-      - name: Get version from tag
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload release artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: AppControlX ${{ steps.version.outputs.version }}
-          files: |
-            app/build/outputs/apk/release/*.apk
+          name: AppControlX-release
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@26994186c0ac3ef5cae75ac16aa32e8153525f77
+        with:
+          name: AppControlX ${{ github.ref_name }}
+          files: app/build/outputs/apk/release/*.apk
           generate_release_notes: true
           draft: false
           prerelease: false

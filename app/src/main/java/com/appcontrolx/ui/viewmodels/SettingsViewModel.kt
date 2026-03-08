@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.appcontrolx.core.ShellManager
+import com.appcontrolx.data.ActionHistoryStore
 import com.appcontrolx.data.ThemeMode
 import com.appcontrolx.data.UserPreferences
 import com.appcontrolx.domain.AppManager
@@ -16,6 +17,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -33,7 +35,8 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val userPreferences: UserPreferences,
     private val shellManager: ShellManager,
-    private val appManager: AppManager
+    private val appManager: AppManager,
+    private val actionHistoryStore: ActionHistoryStore
 ) : ViewModel() {
 
     private val _executionMode = MutableStateFlow(ExecutionMode.NONE)
@@ -59,8 +62,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun loadActionHistory() {
-        // TODO: Implement action history storage
-        _actionHistory.value = emptyList()
+        viewModelScope.launch {
+            actionHistoryStore.actionHistory.collect { history ->
+                _actionHistory.value = history
+            }
+        }
     }
 
     private fun loadAppInfo() {
@@ -105,12 +111,12 @@ class SettingsViewModel @Inject constructor(
                 else -> return@launch
             }
             appManager.executeAction(item.packageName, rollbackAction)
-            loadActionHistory()
         }
     }
 
     fun clearHistory() {
-        // TODO: Implement action history clearing
-        _actionHistory.value = emptyList()
+        viewModelScope.launch {
+            actionHistoryStore.clearHistory()
+        }
     }
 }

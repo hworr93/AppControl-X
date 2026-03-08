@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -21,8 +22,9 @@ class MainViewModel @Inject constructor(
     private val shellManager: ShellManager
 ) : ViewModel() {
 
-    val isSetupCompleted: StateFlow<Boolean> = userPreferences.isSetupCompleted
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val isSetupCompleted: StateFlow<Boolean?> = userPreferences.isSetupCompleted
+        .map<Boolean, Boolean?> { it }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val themeMode: StateFlow<ThemeMode> = userPreferences.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeMode.SYSTEM)

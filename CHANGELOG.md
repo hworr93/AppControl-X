@@ -50,7 +50,7 @@ This is a complete migration from WebView/React to full native Kotlin with Jetpa
 - **activity_main.xml** - Layout XML removed
 
 ### Technical Details
-- 100% offline, no network calls
+- Native feature execution is local/on-device; the app still declares `INTERNET` permission in manifest
 - All native methods preserved (ShellManager, AppScanner, etc.)
 - Material Design 3 components throughout
 - Edge-to-edge display support
@@ -114,7 +114,7 @@ This is a complete migration from WebView/React to full native Kotlin with Jetpa
 - **Cache Strategy** - 30s TTL for app list, persistent icon cache
 
 ### Technical Details
-- All optimizations are **100% offline** (no network calls)
+- Runtime optimizations are local to device execution paths (no backend dependency)
 - Web layer remains design + UI only
 - Backend remains 100% Kotlin native
 - All 23 native methods intact and functional
@@ -243,7 +243,9 @@ This is a complete rewrite of AppControlX with modern architecture and new featu
 
 ---
 
-## Architecture (v3)
+## Legacy Architecture Context (v3.x)
+
+Historical reference for the v3 release line before the v4 native migration:
 
 ```
 ┌─────────────────────────────────────┐

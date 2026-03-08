@@ -7,53 +7,18 @@ on:
     branches: [main]
 
 jobs:
-  build-web:
-    name: Build React
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ./web
-        run: npm ci
-
-      - name: Build React
-        working-directory: ./web
-        run: npm run build
-
-      - name: Upload web assets
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-assets
-          path: app/src/main/assets/www
-          retention-days: 1
-
   build-android:
-    name: Build Android
-    needs: build-web
+    name: Lint, Test, and Build Debug APK
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download web assets
-        uses: actions/download-artifact@v4
-        with:
-          name: web-assets
-          path: app/src/main/assets/www
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -62,51 +27,19 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 1. Debug Build
-      - name: Build Debug APK
+      - name: Run lint
+        run: ./gradlew lintDebug --no-daemon
+
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
+      - name: Upload debug APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: AppControlX-debug
           path: app/build/outputs/apk/debug/*.apk
-          retention-days: 7
-
-      # 2. Release Build (Logic to handle both Real Sign and Generated Sign)
-      - name: Configure Keystore
-        id: sign_config
-        run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "Found secrets. Setting up Real Signing..."
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-            echo "KEYSTORE_FILE=$(pwd)/release.keystore" >> $GITHUB_ENV
-            echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
-            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
-            echo "build_type=real-signed" >> $GITHUB_OUTPUT
-          else
-            echo "No secrets found. Setting up Generated Signing..."
-            keytool -genkey -v -keystore release.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
-            echo "KEYSTORE_FILE=$(pwd)/release.keystore" >> $GITHUB_ENV
-            echo "KEYSTORE_PASSWORD=android" >> $GITHUB_ENV
-            echo "KEY_ALIAS=androiddebugkey" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=android" >> $GITHUB_ENV
-            echo "build_type=generated-signed" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Build Release APK
-        run: ./gradlew assembleRelease --no-daemon
-
-      - name: Rename Release APK
-        run: |
-          cd app/build/outputs/apk/release/
-          # Find the release apk (it might include version number)
-          find . -name "*release.apk" -exec mv {} AppControlX-release-${{ steps.sign_config.outputs.build_type }}.apk \;
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: AppControlX-release-${{ steps.sign_config.outputs.build_type }}
-          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
           retention-days: 7
