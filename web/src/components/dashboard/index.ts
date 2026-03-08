@@ -1,5 +1,0 @@
-export { MemoryModal } from './MemoryModal'
-export { StorageModal } from './StorageModal'
-export { DisplayModal } from './DisplayModal'
-export { BatteryModal } from './BatteryModal'
-export { NetworkModal } from './NetworkModal'

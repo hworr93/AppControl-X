@@ -1,7 +1,6 @@
 package com.appcontrolx.di
 
 import android.content.Context
-import com.appcontrolx.bridge.NativeBridge
 import com.appcontrolx.core.ShellManager
 import com.appcontrolx.domain.AppManager
 import com.appcontrolx.domain.AppScanner
@@ -52,25 +51,5 @@ object AppModule {
     @Singleton
     fun provideSystemMonitor(@ApplicationContext context: Context): SystemMonitor {
         return SystemMonitor(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideNativeBridge(
-        @ApplicationContext context: Context,
-        appScanner: AppScanner,
-        appManager: AppManager,
-        systemMonitor: SystemMonitor,
-        shellManager: ShellManager,
-        safetyValidator: SafetyValidator
-    ): NativeBridge {
-        return NativeBridge(
-            context,
-            appScanner,
-            appManager,
-            systemMonitor,
-            shellManager,
-            safetyValidator
-        )
     }
 }

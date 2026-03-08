@@ -2,6 +2,62 @@
 
 All notable changes to AppControlX.
 
+## [4.0.0] - 2026-03-09 (Native UI Migration)
+
+### 🎉 Complete Native Migration
+This is a complete migration from WebView/React to full native Kotlin with Jetpack Compose.
+
+### Added
+- **Jetpack Compose UI** - 100% native UI with Material Design 3
+  - No WebView, no React, no JavaScript bridge
+  - Direct Kotlin/Compose for maximum performance
+- **Setup Screen** - 4-step wizard (Welcome, Mode, Theme, Ready)
+- **Dashboard Screen** - System stats cards with modals
+  - CPU, RAM, Storage, Battery, Network, Display
+  - Device info with processor mapping
+- **App List Screen** - Full-featured app management
+  - Search, filters (User/System/All)
+  - Selection mode with batch actions
+  - App detail bottom sheet
+  - Action confirmation dialogs
+- **Tools Screen** - Hidden settings launcher
+  - Quick actions (Activity Launcher, App Info)
+  - Categorized hidden settings
+- **Activity Launcher Screen** - Launch any activity
+  - Search and filter apps
+  - Expandable activity list
+- **Settings Screen** - App configuration
+  - Execution mode selection (Root/Shizuku/None)
+  - Theme toggle (Light/Dark/System)
+  - Action history with rollback
+  - App information
+- **About Screen** - App info and credits
+- **Theme System** - Light/Dark/System modes with dynamic colors
+- **Navigation** - Compose Navigation with type-safe routes
+
+### Changed
+- **Architecture** - Migrated from WebView/React to Jetpack Compose
+- **MainActivity** - Now uses ComponentActivity with Compose setContent
+- **State Management** - StateFlow in ViewModels (no more Zustand)
+- **Dependency Injection** - Hilt for all ViewModels
+- **Data Persistence** - DataStore for preferences
+
+### Removed
+- **WebView** - No longer needed
+- **NativeBridge** - JavaScript bridge removed
+- **React UI** - Entire web folder removed
+- **appcompat** - Replaced with Compose
+- **activity_main.xml** - Layout XML removed
+
+### Technical Details
+- 100% offline, no network calls
+- All native methods preserved (ShellManager, AppScanner, etc.)
+- Material Design 3 components throughout
+- Edge-to-edge display support
+- Dark mode with dynamic color support
+
+---
+
 ## [3.1.0] - 2026-02-07 (Performance Optimization)
 
 ### 🚀 Major Performance Improvements

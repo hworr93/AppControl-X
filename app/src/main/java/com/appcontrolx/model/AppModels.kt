@@ -105,3 +105,12 @@ data class AppActivityFilter(
     val type: String = "all", // "all"|"user"|"system"
     val search: String = ""
 )
+
+@Serializable
+data class ActionHistoryItem(
+    val packageName: String,
+    val appName: String,
+    val action: AppAction,
+    val timestamp: Long,
+    val canRollback: Boolean = false
+)
