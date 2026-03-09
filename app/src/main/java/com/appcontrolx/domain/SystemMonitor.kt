@@ -1,5 +1,6 @@
 package com.appcontrolx.domain
 
+import android.Manifest
 import android.app.ActivityManager
 import android.app.usage.StorageStatsManager
 import android.content.Context
@@ -18,6 +19,7 @@ import android.os.SystemClock
 import android.os.storage.StorageManager
 import android.telephony.TelephonyManager
 import android.view.WindowManager
+import androidx.core.content.ContextCompat
 import com.appcontrolx.model.*
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -516,16 +518,32 @@ class SystemMonitor @Inject constructor(
     private fun getNetworkStats(): NetworkStats {
         return try {
             val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val hasNetworkStatePermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_NETWORK_STATE
+            ) == PackageManager.PERMISSION_GRANTED
+            val hasWifiStatePermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_WIFI_STATE
+            ) == PackageManager.PERMISSION_GRANTED
+            val hasReadPhoneStatePermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_PHONE_STATE
+            ) == PackageManager.PERMISSION_GRANTED
 
             // Check permissions for WifiManager and TelephonyManager access
             // If we don't handle this, it crashes on restricted devices
             val wifiStats = try {
-                val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-                val network = connectivityManager.activeNetwork
-                val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
-                val wifiConnected = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+                val wifiConnected = if (hasNetworkStatePermission) {
+                    val network = connectivityManager.activeNetwork
+                    val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
+                    capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+                } else {
+                    false
+                }
 
-                if (wifiConnected) {
+                if (wifiConnected && hasWifiStatePermission) {
+                    val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
                     @Suppress("DEPRECATION")
                     val wifiInfo = wifiManager.connectionInfo
                     val ssid = wifiInfo.ssid?.replace("\"", "") ?: "Unknown"
@@ -554,24 +572,36 @@ class SystemMonitor @Inject constructor(
 
             val (mobileConnected, mobileType, simPresent) = try {
                 val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-                val network = connectivityManager.activeNetwork
-                val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
-                val mobConnected = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
+                val mobConnected = if (hasNetworkStatePermission) {
+                    val network = connectivityManager.activeNetwork
+                    val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
+                    capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
+                } else {
+                    false
+                }
 
                 val type = if (mobConnected) {
-                    @Suppress("DEPRECATION")
-                    when (telephonyManager.networkType) {
-                        TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
-                        TelephonyManager.NETWORK_TYPE_NR -> "5G"
-                        TelephonyManager.NETWORK_TYPE_HSPAP -> "HSPA+"
-                        TelephonyManager.NETWORK_TYPE_HSPA -> "HSPA"
-                        TelephonyManager.NETWORK_TYPE_EDGE -> "EDGE"
-                        TelephonyManager.NETWORK_TYPE_GPRS -> "GPRS"
-                        else -> "Mobile"
+                    if (hasReadPhoneStatePermission) {
+                        @Suppress("DEPRECATION")
+                        when (telephonyManager.networkType) {
+                            TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
+                            TelephonyManager.NETWORK_TYPE_NR -> "5G"
+                            TelephonyManager.NETWORK_TYPE_HSPAP -> "HSPA+"
+                            TelephonyManager.NETWORK_TYPE_HSPA -> "HSPA"
+                            TelephonyManager.NETWORK_TYPE_EDGE -> "EDGE"
+                            TelephonyManager.NETWORK_TYPE_GPRS -> "GPRS"
+                            else -> "Mobile"
+                        }
+                    } else {
+                        "Mobile"
                     }
                 } else ""
 
-                val sim = telephonyManager.simState == TelephonyManager.SIM_STATE_READY
+                val sim = if (hasReadPhoneStatePermission) {
+                    telephonyManager.simState == TelephonyManager.SIM_STATE_READY
+                } else {
+                    false
+                }
                 Triple(mobConnected, type, sim)
             } catch (e: Exception) {
                 Triple(false, "", false)
