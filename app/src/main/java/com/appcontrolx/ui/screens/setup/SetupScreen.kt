@@ -21,7 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.appcontrolx.data.ThemeMode
 import com.appcontrolx.model.ExecutionMode
-import com.appcontrolx.ui.viewmodels.SetupViewModel
+import com.appcontrolx.ui.screens.setup.SetupViewModel
 import kotlinx.coroutines.launch
 
 data class SetupStep(

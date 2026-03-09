@@ -17,7 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.appcontrolx.ui.viewmodels.AboutViewModel
+import com.appcontrolx.ui.screens.about.AboutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

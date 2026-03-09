@@ -30,7 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.appcontrolx.model.AppAction
 import com.appcontrolx.model.AppInfo
 import com.appcontrolx.model.SafetyLevel
-import com.appcontrolx.ui.viewmodels.AppListViewModel
+import com.appcontrolx.ui.screens.apps.AppListViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

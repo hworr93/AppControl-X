@@ -12,7 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.appcontrolx.ui.navigation.AppNavGraph
 import com.appcontrolx.ui.theme.AppControlXTheme
-import com.appcontrolx.ui.viewmodels.MainViewModel
+import com.appcontrolx.ui.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

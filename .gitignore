@@ -97,3 +97,6 @@ coverage/
 # Old code (keeping for reference but not tracking changes)
 old/
 .claude/
+
+# Planning specs
+.kiro/

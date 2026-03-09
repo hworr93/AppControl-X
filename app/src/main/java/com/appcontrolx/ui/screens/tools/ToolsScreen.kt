@@ -18,7 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.appcontrolx.ui.viewmodels.ToolsViewModel
+import com.appcontrolx.ui.screens.tools.ToolsViewModel
 
 data class HiddenSetting(
     val id: String,

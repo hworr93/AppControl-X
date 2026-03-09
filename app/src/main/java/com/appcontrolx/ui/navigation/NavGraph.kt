@@ -15,13 +15,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.appcontrolx.ui.screens.about.AboutScreen
-import com.appcontrolx.ui.screens.activitylauncher.ActivityLauncherScreen
+import com.appcontrolx.ui.screens.activity_launcher.ActivityLauncherScreen
 import com.appcontrolx.ui.screens.apps.AppListScreen
 import com.appcontrolx.ui.screens.dashboard.DashboardScreen
 import com.appcontrolx.ui.screens.settings.SettingsScreen
 import com.appcontrolx.ui.screens.setup.SetupScreen
 import com.appcontrolx.ui.screens.tools.ToolsScreen
-import com.appcontrolx.ui.viewmodels.MainViewModel
+import com.appcontrolx.ui.MainViewModel
 
 @Composable
 fun AppNavGraph(
