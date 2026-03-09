@@ -100,7 +100,7 @@ fun ActivityLauncherScreen(
                     selected = selectedFilter == "all",
                     onClick = { viewModel.setFilter("all") },
                     label = { Text("All") },
-                    leadingIcon = { Icon(Icons.Default.Package, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    leadingIcon = { Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(16.dp)) }
                 )
                 FilterChip(
                     selected = selectedFilter == "user",
@@ -226,7 +226,7 @@ private fun AppActivityCard(
                         )
                     } else {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Package, contentDescription = null)
+                            Icon(Icons.Default.Apps, contentDescription = null)
                         }
                     }
                 }

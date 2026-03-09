@@ -143,7 +143,7 @@ fun AppListScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
-                            Icons.Default.Package,
+                            Icons.Default.Apps,
                             contentDescription = null,
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
@@ -261,7 +261,7 @@ private fun FilterTabs(
             selected = selectedFilter == "all",
             onClick = { onFilterChange("all") },
             label = { Text("All") },
-            leadingIcon = { Icon(Icons.Default.Package, contentDescription = null, modifier = Modifier.size(16.dp)) },
+            leadingIcon = { Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(16.dp)) },
             trailingIcon = { Text(counts.all.toString(), style = MaterialTheme.typography.labelSmall) }
         )
         FilterChip(
@@ -275,7 +275,7 @@ private fun FilterTabs(
             selected = selectedFilter == "system",
             onClick = { onFilterChange("system") },
             label = { Text("System") },
-            leadingIcon = { Icon(Icons.Default.Package, contentDescription = null, modifier = Modifier.size(16.dp)) },
+            leadingIcon = { Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(16.dp)) },
             trailingIcon = { Text(counts.system.toString(), style = MaterialTheme.typography.labelSmall) }
         )
         FilterChip(
@@ -391,30 +391,60 @@ private fun ActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     color: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.1f),
-        onClick = onClick
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    val contentColor = if (enabled) color else color.copy(alpha = 0.5f)
+    val containerColor = if (enabled) color.copy(alpha = 0.1f) else color.copy(alpha = 0.05f)
+
+    if (enabled) {
+        Surface(
+            modifier = modifier,
+            shape = RoundedCornerShape(12.dp),
+            color = containerColor,
+            onClick = onClick
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(18.dp)
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelMedium,
-                color = color
-            )
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = contentColor
+                )
+            }
+        }
+    } else {
+        Surface(
+            modifier = modifier,
+            shape = RoundedCornerShape(12.dp),
+            color = containerColor
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = contentColor
+                )
+            }
         }
     }
 }
@@ -502,7 +532,7 @@ private fun AppItem(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.Package,
+                            Icons.Default.Apps,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -637,7 +667,7 @@ private fun AppDetailSheet(
                         )
                     } else {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Package, contentDescription = null, modifier = Modifier.size(32.dp))
+                            Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(32.dp))
                         }
                     }
                 }

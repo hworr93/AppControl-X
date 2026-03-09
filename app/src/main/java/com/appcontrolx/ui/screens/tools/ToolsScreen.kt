@@ -105,7 +105,7 @@ fun ToolsScreen(
                 ) {
                     QuickActionCard(
                         modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Package,
+                        icon = Icons.Default.Apps,
                         title = "App Manager",
                         subtitle = "Freeze, stop, uninstall",
                         color = MaterialTheme.colorScheme.primary,
