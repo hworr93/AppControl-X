@@ -779,12 +779,6 @@ private fun ActionHistoryItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            if (item.canRollback) {
-                TextButton(onClick = onRollback) {
-                    Text("Undo")
-                }
-            }
         }
     }
 }

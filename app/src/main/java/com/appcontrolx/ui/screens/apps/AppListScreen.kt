@@ -708,7 +708,7 @@ private fun AppDetailSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             val canExecute = app.safetyLevel != SafetyLevel.CRITICAL
-            val canFreeze = app.safetyLevel == SafetyLevel.SAFE || app.safetyLevel == SafetyLevel.WARNING
+            val canFreeze = app.safetyLevel == SafetyLevel.SAFE
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

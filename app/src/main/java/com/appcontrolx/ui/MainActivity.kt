@@ -9,7 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.appcontrolx.ui.navigation.AppNavGraph
 import com.appcontrolx.ui.theme.AppControlXTheme
 import com.appcontrolx.ui.MainViewModel
@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val viewModel: MainViewModel = viewModel()
+            val viewModel: MainViewModel = hiltViewModel()
             val themeMode = viewModel.themeMode.collectAsStateWithLifecycle()
             
             AppControlXTheme(
