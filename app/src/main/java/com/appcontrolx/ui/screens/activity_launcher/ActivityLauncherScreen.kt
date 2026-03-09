@@ -1,4 +1,4 @@
-package com.appcontrolx.ui.screens.activitylauncher
+package com.appcontrolx.ui.screens.activity_launcher
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -29,7 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.appcontrolx.model.AppActivities
 import com.appcontrolx.model.ActivityInfo
-import com.appcontrolx.ui.viewmodels.ActivityLauncherViewModel
+import com.appcontrolx.ui.screens.activity_launcher.ActivityLauncherViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

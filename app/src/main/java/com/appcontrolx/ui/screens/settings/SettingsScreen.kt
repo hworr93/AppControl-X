@@ -785,7 +785,7 @@ private fun ActionHistoryItem(
 
 @Composable
 private fun AppInfoDialog(
-    appInfo: com.appcontrolx.ui.viewmodels.AppInfoData,
+    appInfo: SettingsViewModel.AppInfoData,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
