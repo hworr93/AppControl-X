@@ -1,4 +1,4 @@
-package com.appcontrolx.ui.viewmodels
+package com.appcontrolx.ui.screens.tools
 
 import android.content.Context
 import android.content.Intent

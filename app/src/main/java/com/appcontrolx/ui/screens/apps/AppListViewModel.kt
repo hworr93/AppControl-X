@@ -1,4 +1,4 @@
-package com.appcontrolx.ui.viewmodels
+package com.appcontrolx.ui.screens.apps
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
