@@ -53,8 +53,7 @@ class AppManager @Inject constructor(
                                 packageName = packageName,
                                 appName = resolveAppName(packageName),
                                 action = action,
-                                timestamp = System.currentTimeMillis(),
-                                canRollback = isRollbackSupported(action)
+                                timestamp = System.currentTimeMillis()
                             )
                         )
                     } catch (_: Exception) {
@@ -83,10 +82,6 @@ class AppManager @Inject constructor(
             val appInfo = context.packageManager.getApplicationInfo(packageName, 0)
             context.packageManager.getApplicationLabel(appInfo).toString()
         }.getOrDefault(packageName)
-    }
-
-    private fun isRollbackSupported(action: AppAction): Boolean {
-        return action == AppAction.FREEZE || action == AppAction.UNFREEZE
     }
 
     suspend fun executeBatchAction(

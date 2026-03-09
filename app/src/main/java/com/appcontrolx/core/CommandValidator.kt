@@ -1,36 +1,36 @@
 package com.appcontrolx.core
 
-internal object ShellCommandPolicy {
+internal object CommandValidator {
 
     private val forbiddenChars = setOf(';', '|', '&', '`', '>', '<', '\\', '\n', '\r', '\u0000')
     private val packageRegex = Regex("^[a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)+$")
     private val componentRegex = Regex("^[a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)+/[a-zA-Z0-9_.$]+$")
     private val componentRelativeRegex = Regex("^[a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)+/\\.[a-zA-Z0-9_.$]+$")
 
-    fun validate(command: String): ValidationResult {
+    fun validate(command: String): Result<Unit> {
         val trimmed = command.trim()
         if (trimmed.isEmpty()) {
-            return ValidationResult.Denied("Empty command")
+            return Result.failure(IllegalArgumentException("Empty command"))
         }
         if (trimmed.length > 512) {
-            return ValidationResult.Denied("Command too long")
+            return Result.failure(IllegalArgumentException("Command too long"))
         }
         if (trimmed.any { it in forbiddenChars || it.isISOControl() && !it.isWhitespace() }) {
-            return ValidationResult.Denied("Command contains forbidden characters")
+            return Result.failure(SecurityException("Command contains forbidden characters"))
         }
         if (containsForbiddenShellPattern(trimmed)) {
-            return ValidationResult.Denied("Command contains forbidden shell pattern")
+            return Result.failure(SecurityException("Command contains forbidden shell pattern"))
         }
 
         val tokens = trimmed.split(Regex("\\s+")).filter { it.isNotEmpty() }
         if (tokens.isEmpty()) {
-            return ValidationResult.Denied("Empty command")
+            return Result.failure(IllegalArgumentException("Empty command"))
         }
 
         return if (isAllowedTokens(tokens)) {
-            ValidationResult.Allowed
+            Result.success(Unit)
         } else {
-            ValidationResult.Denied("Command is not in allowed policy")
+            Result.failure(SecurityException("Command is not in allowed policy"))
         }
     }
 
@@ -81,9 +81,7 @@ internal object ShellCommandPolicy {
         if (tokens.size < 2) return false
         return when (tokens[1]) {
             "force-stop" -> tokens.size == 3 && isPackageName(tokens[2])
-
             "start" -> tokens.size == 4 && tokens[2] == "-n" && isComponentName(tokens[3])
-
             else -> false
         }
     }
@@ -114,10 +112,5 @@ internal object ShellCommandPolicy {
 
     private fun isComponentName(value: String): Boolean {
         return componentRegex.matches(value) || componentRelativeRegex.matches(value)
-    }
-
-    sealed class ValidationResult {
-        object Allowed : ValidationResult()
-        data class Denied(val reason: String) : ValidationResult()
     }
 }

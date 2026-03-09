@@ -15,21 +15,24 @@ This is a complete migration from WebView/React to full native Kotlin with Jetpa
 - **Dashboard Screen** - System stats cards with modals
   - CPU, RAM, Storage, Battery, Network, Display
   - Device info with processor mapping
+  - Bottom NavigationBar (Home, Tools, Settings)
 - **App List Screen** - Full-featured app management
   - Search, filters (User/System/All)
   - Selection mode with batch actions
   - App detail bottom sheet
   - Action confirmation dialogs
+  - Material3 loading indicators
 - **Tools Screen** - Hidden settings launcher
   - Quick actions (Activity Launcher, App Info)
   - Categorized hidden settings
 - **Activity Launcher Screen** - Launch any activity
   - Search and filter apps
   - Expandable activity list
+  - Material3 loading indicators
 - **Settings Screen** - App configuration
   - Execution mode selection (Root/Shizuku/None)
   - Theme toggle (Light/Dark/System)
-  - Action history with rollback
+  - Action history (rollback removed)
   - App information
 - **About Screen** - App info and credits
 - **Theme System** - Light/Dark/System modes with dynamic colors
@@ -41,6 +44,11 @@ This is a complete migration from WebView/React to full native Kotlin with Jetpa
 - **State Management** - StateFlow in ViewModels (no more Zustand)
 - **Dependency Injection** - Hilt for all ViewModels
 - **Data Persistence** - DataStore for preferences
+- **Code Simplification** - Removed over-engineered layers (65% code reduction in core services)
+  - ShellService: 244 → 85 lines (removed session token system, manual thread management)
+  - SafetyValidator: 129 → 78 lines (reduced hardcoded packages from 110+ to 30)
+  - Consolidated duplicate validation layers into single CommandValidator
+  - Simplified Shizuku service with direct UID validation
 
 ### Removed
 - **WebView** - No longer needed
@@ -48,6 +56,13 @@ This is a complete migration from WebView/React to full native Kotlin with Jetpa
 - **React UI** - Entire web folder removed
 - **appcompat** - Replaced with Compose
 - **activity_main.xml** - Layout XML removed
+- **Over-engineered code** - Removed unnecessary complexity
+  - UUID session tokens and ConcurrentHashMap management
+  - Manual thread spawning with AtomicReference wrappers
+  - Double command validation (ShellCommandPolicy + SafetyValidator)
+  - Rollback feature from action history
+  - 85+ unnecessary hardcoded critical packages
+  - WARNING safety level (simplified to CRITICAL, FORCE_STOP_ONLY, SAFE)
 
 ### Technical Details
 - Native feature execution is local/on-device; the app still declares `INTERNET` permission in manifest

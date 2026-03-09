@@ -36,9 +36,6 @@ class ShellManager @Inject constructor(
     @Volatile
     private var isBinding = false
 
-    @Volatile
-    private var sessionToken: String? = null
-
     private val userServiceArgs by lazy {
         Shizuku.UserServiceArgs(
             ComponentName(BuildConfig.APPLICATION_ID, ShellService::class.java.name)
@@ -55,7 +52,6 @@ class ShellManager @Inject constructor(
                 shellService = IShellService.Stub.asInterface(service)
                 isBound = true
                 isBinding = false
-                sessionToken = null
                 serviceLatch.countDown()
             }
         }
@@ -63,7 +59,6 @@ class ShellManager @Inject constructor(
         override fun onServiceDisconnected(name: ComponentName?) {
             synchronized(serviceLock) {
                 shellService = null
-                sessionToken = null
                 isBound = false
                 isBinding = false
                 serviceLatch = CountDownLatch(1)
@@ -146,12 +141,8 @@ class ShellManager @Inject constructor(
     }
 
     suspend fun execute(command: String): Result<String> = withContext(Dispatchers.IO) {
-        when (val validation = ShellCommandPolicy.validate(command)) {
-            is ShellCommandPolicy.ValidationResult.Denied -> {
-                return@withContext Result.failure(SecurityException("Command not allowed: ${validation.reason}"))
-            }
-
-            ShellCommandPolicy.ValidationResult.Allowed -> Unit
+        CommandValidator.validate(command).getOrElse {
+            return@withContext Result.failure(it)
         }
 
         when (currentMode) {
@@ -188,14 +179,8 @@ class ShellManager @Inject constructor(
             ?: return Result.failure(IllegalStateException("Shizuku service not available"))
 
         return try {
-            val token = getOrCreateSessionToken(service)
-                ?: return Result.failure(SecurityException("Failed to open authorized session"))
-            val output = service.exec(token, command)
-            if (output.startsWith("ERROR:")) {
-                Result.failure(Exception(output.removePrefix("ERROR:")))
-            } else {
-                Result.success(output)
-            }
+            val output = service.exec(command)
+            Result.success(output)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -216,29 +201,7 @@ class ShellManager @Inject constructor(
         return synchronized(serviceLock) { shellService }
     }
 
-    private fun getOrCreateSessionToken(service: IShellService): String? {
-        synchronized(serviceLock) {
-            sessionToken?.let { return it }
-        }
-
-        val newToken = service.openSession(context.packageName)
-        synchronized(serviceLock) {
-            sessionToken = newToken
-            return sessionToken
-        }
-    }
-
     fun cleanup() {
-        val serviceToClose = synchronized(serviceLock) { shellService }
-        val tokenToClose = synchronized(serviceLock) { sessionToken }
-
-        if (serviceToClose != null && !tokenToClose.isNullOrBlank()) {
-            try {
-                serviceToClose.closeSession(tokenToClose)
-            } catch (_: Exception) {
-            }
-        }
-
         synchronized(serviceLock) {
             if (isBound || isBinding) {
                 try {
@@ -247,7 +210,6 @@ class ShellManager @Inject constructor(
                 }
             }
             shellService = null
-            sessionToken = null
             isBound = false
             isBinding = false
             serviceLatch = CountDownLatch(1)

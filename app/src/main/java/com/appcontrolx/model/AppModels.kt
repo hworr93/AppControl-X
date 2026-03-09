@@ -23,7 +23,6 @@ enum class ExecutionMode {
 enum class SafetyLevel {
     CRITICAL,
     FORCE_STOP_ONLY,
-    WARNING,
     SAFE
 }
 
@@ -111,6 +110,5 @@ data class ActionHistoryItem(
     val packageName: String,
     val appName: String,
     val action: AppAction,
-    val timestamp: Long,
-    val canRollback: Boolean = false
+    val timestamp: Long
 )
