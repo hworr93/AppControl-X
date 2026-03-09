@@ -22,7 +22,6 @@ import com.appcontrolx.data.ThemeMode
 import com.appcontrolx.model.ActionHistoryItem
 import com.appcontrolx.model.AppAction
 import com.appcontrolx.model.ExecutionMode
-import com.appcontrolx.ui.screens.settings.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -785,7 +784,7 @@ private fun ActionHistoryItem(
 
 @Composable
 private fun AppInfoDialog(
-    appInfo: SettingsViewModel.AppInfoData,
+    appInfo: AppInfoData,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
