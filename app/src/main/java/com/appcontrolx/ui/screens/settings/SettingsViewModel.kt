@@ -8,9 +8,7 @@ import com.appcontrolx.core.ShellManager
 import com.appcontrolx.data.ActionHistoryStore
 import com.appcontrolx.data.ThemeMode
 import com.appcontrolx.data.UserPreferences
-import com.appcontrolx.domain.AppManager
 import com.appcontrolx.model.ActionHistoryItem
-import com.appcontrolx.model.AppAction
 import com.appcontrolx.model.ExecutionMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,7 +33,6 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val userPreferences: UserPreferences,
     private val shellManager: ShellManager,
-    private val appManager: AppManager,
     private val actionHistoryStore: ActionHistoryStore
 ) : ViewModel() {
 
@@ -100,17 +97,6 @@ class SettingsViewModel @Inject constructor(
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             userPreferences.setThemeMode(mode)
-        }
-    }
-
-    fun rollbackAction(item: ActionHistoryItem) {
-        viewModelScope.launch {
-            val rollbackAction = when (item.action) {
-                AppAction.FREEZE -> AppAction.UNFREEZE
-                AppAction.UNFREEZE -> AppAction.FREEZE
-                else -> return@launch
-            }
-            appManager.executeAction(item.packageName, rollbackAction)
         }
     }
 

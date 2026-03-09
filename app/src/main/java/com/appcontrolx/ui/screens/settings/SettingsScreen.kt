@@ -20,7 +20,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.appcontrolx.data.ThemeMode
 import com.appcontrolx.model.ActionHistoryItem
-import com.appcontrolx.model.AppAction
 import com.appcontrolx.model.ExecutionMode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -430,7 +429,6 @@ fun SettingsScreen(
     if (showActionHistoryDialog) {
         ActionHistoryDialog(
             history = actionHistory,
-            onRollback = { viewModel.rollbackAction(it) },
             onClear = { viewModel.clearHistory() },
             onDismiss = { showActionHistoryDialog = false }
         )
@@ -674,7 +672,6 @@ private fun ThemeOption(
 @Composable
 private fun ActionHistoryDialog(
     history: List<ActionHistoryItem>,
-    onRollback: (ActionHistoryItem) -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -736,10 +733,7 @@ private fun ActionHistoryDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(history, key = { it.timestamp }) { item ->
-                        ActionHistoryItem(
-                            item = item,
-                            onRollback = { onRollback(item) }
-                        )
+                        ActionHistoryItem(item = item)
                     }
                 }
             }
@@ -749,8 +743,7 @@ private fun ActionHistoryDialog(
 
 @Composable
 private fun ActionHistoryItem(
-    item: ActionHistoryItem,
-    onRollback: () -> Unit
+    item: ActionHistoryItem
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
