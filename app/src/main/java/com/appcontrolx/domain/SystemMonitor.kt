@@ -1,6 +1,7 @@
 package com.appcontrolx.domain
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.usage.StorageStatsManager
 import android.content.Context
@@ -583,7 +584,7 @@ class SystemMonitor @Inject constructor(
                 val type = if (mobConnected) {
                     if (hasReadPhoneStatePermission) {
                         @Suppress("DEPRECATION")
-                        when (telephonyManager.networkType) {
+                        when (getTelephonyNetworkType(telephonyManager)) {
                             TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
                             TelephonyManager.NETWORK_TYPE_NR -> "5G"
                             TelephonyManager.NETWORK_TYPE_HSPAP -> "HSPA+"
@@ -598,7 +599,7 @@ class SystemMonitor @Inject constructor(
                 } else ""
 
                 val sim = if (hasReadPhoneStatePermission) {
-                    telephonyManager.simState == TelephonyManager.SIM_STATE_READY
+                    getTelephonySimState(telephonyManager) == TelephonyManager.SIM_STATE_READY
                 } else {
                     false
                 }
@@ -615,6 +616,16 @@ class SystemMonitor @Inject constructor(
         } catch (e: Exception) {
             NetworkStats(WifiStats(false, "", "", 0, 0, 0), MobileStats(false, ""), SimStats(false))
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun getTelephonyNetworkType(telephonyManager: TelephonyManager): Int {
+        return telephonyManager.networkType
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun getTelephonySimState(telephonyManager: TelephonyManager): Int {
+        return telephonyManager.simState
     }
 
     private fun getDisplayStats(): DisplayStats {
