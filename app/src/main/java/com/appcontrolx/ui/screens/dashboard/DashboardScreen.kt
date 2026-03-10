@@ -30,8 +30,6 @@ import com.appcontrolx.ui.screens.dashboard.DashboardViewModel
 @Composable
 fun DashboardScreen(
     onNavigateToApps: () -> Unit,
-    onNavigateToTools: () -> Unit,
-    onNavigateToSettings: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val systemStats by viewModel.systemStats.collectAsStateWithLifecycle()
@@ -54,28 +52,6 @@ fun DashboardScreen(
                     containerColor = Color.Transparent
                 )
             )
-        },
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text("Home") },
-                    selected = true,
-                    onClick = { }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Build, contentDescription = null) },
-                    label = { Text("Tools") },
-                    selected = false,
-                    onClick = onNavigateToTools
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text("Settings") },
-                    selected = false,
-                    onClick = onNavigateToSettings
-                )
-            }
         }
     ) { paddingValues ->
         if (isLoading) {
